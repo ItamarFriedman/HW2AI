@@ -5,7 +5,12 @@ import random
 
 # TODO: section a : 3
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
-    pass
+    robot = env.get_robot(robot_id)
+    pickUpIncentive = (robot.package is None) * min(manhattan_distance(robot.position, env.packages[0].position),
+                                                    manhattan_distance(robot.position, env.packages[1].position)) #todo: always 0,1?
+    dropOffIncentive = (robot.package is not None) * manhattan_distance(robot.position, robot.package.destination)
+
+    return 15 * pickUpIncentive + dropOffIncentive - 0.5 * robot.battery - 0.3 * robot.credit
 
 class AgentGreedyImproved(AgentGreedy):
     def heuristic(self, env: WarehouseEnv, robot_id: int):

@@ -8,9 +8,19 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     robot = env.get_robot(robot_id)
     pickUpIncentive = (robot.package is None) * min(manhattan_distance(robot.position, env.packages[0].position),
                                                     manhattan_distance(robot.position, env.packages[1].position)) #todo: always 0,1?
-    dropOffIncentive = (robot.package is not None) * manhattan_distance(robot.position, robot.package.destination)
+    dropOffIncentive = 0
+    if robot.package is not None:
+        dropOffIncentive = (robot.package is not None) * manhattan_distance(robot.position, robot.package.destination)
 
-    return 15 * pickUpIncentive + dropOffIncentive - 0.5 * robot.battery - 0.3 * robot.credit
+    if robot.battery <= min(5,min(manhattan_distance(robot.position, env.charge_stations[0].position),
+                            manhattan_distance(robot.position, env.charge_stations[1].position))):
+
+        return 50000 - min(manhattan_distance(robot.position, env.charge_stations[0].position),
+                           manhattan_distance(robot.position, env.charge_stations[1].position))
+    else:
+        return 50000 - (15 * pickUpIncentive + dropOffIncentive - 100 * robot.battery - 50*robot.credit)
+
+
 
 class AgentGreedyImproved(AgentGreedy):
     def heuristic(self, env: WarehouseEnv, robot_id: int):

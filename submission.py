@@ -45,15 +45,12 @@ class AgentMinimax(Agent):
     # TODO: section b : 1
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         start = time.time()
-        operators = env.get_legal_operators(agent_id)
         depth = 0
-        h, o = (0, 0)
+        o = 0
         try:
             while True:
                 depth += 1
                 h, o = self.rb_minimax(env, agent_id, depth, True, start, time_limit)
-                #print("Operation ", o, "Hueristic", h)
-                #print(depth)
         except TimeoutError:
             return o
 
@@ -97,19 +94,89 @@ class AgentMinimax(Agent):
         other_robot = env.get_robot((robot_id + 1) % 2)
         packageBonus = 10*(robot.package is not None)
         creditBonus = 100*robot.credit
+        lowBatteryPanelty = 5000*(robot.battery <= 0)
         creditDifference = 1000*(robot.credit - other_robot.credit)
-        return packageBonus + creditBonus + creditDifference
+        return packageBonus + creditBonus + creditDifference - lowBatteryPanelty
 
-class AgentAlphaBeta(Agent):
+
+class AgentAlphaBeta(AgentMinimax):
     # TODO: section c : 1
-    def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        raise NotImplementedError()
+    def rb_minimax(self, env, agent_id, depth, our_turn, start, time_limit, alpha=-float('inf'), beta=float('inf')) -> (int, int):
+        currentTime = time.time()
+        if currentTime - start >= 0.9 * time_limit:
+            raise TimeoutError
+        if (env.done()) or depth == 0:
+            return self.heuristic(env, agent_id), -1
+
+        if our_turn:
+            current_agent_id = agent_id
+        else:
+            current_agent_id = not agent_id
+        operators = env.get_legal_operators(current_agent_id)
+        children = [env.clone() for _ in operators]
+        for child, op in zip(children, operators):
+            child.apply_operator(current_agent_id, op)
+        if our_turn:
+            current_max = -float('inf')
+            op_max = -1
+            for child, op in zip(children, operators):
+                v = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit, alpha, beta)[0]
+                if v > current_max:
+                    current_max = v
+                    op_max = op
+                alpha = max(current_max, alpha)
+                if current_max >= beta:
+                    return float('inf'), -1
+            return current_max, op_max
+        else:
+            current_min = float('inf')
+            op_min = -1
+            for child, op in zip(children, operators):
+                v = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit, alpha, beta)[0]
+                if v < current_min:
+                    current_min = v
+                    op_min = op
+                beta = min(current_min, beta)
+                if current_min <= alpha:
+                    return -float('inf'), -1
+            return current_min, op_min
 
 
-class AgentExpectimax(Agent):
+class AgentExpectimax(AgentMinimax):
     # TODO: section d : 1
-    def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        raise NotImplementedError()
+    def rb_minimax(self, env, agent_id, depth, our_turn, start, time_limit) -> (int, int):
+        currentTime = time.time()
+        if currentTime - start >= 0.9 * time_limit:
+            raise TimeoutError
+        if (env.done()) or depth == 0:
+            return self.heuristic(env, agent_id), -1
+        if our_turn:
+            current_agent_id = agent_id
+        else:
+            current_agent_id = not agent_id
+        operators = env.get_legal_operators(current_agent_id)
+        children = [env.clone() for _ in operators]
+        for child, op in zip(children, operators):
+            child.apply_operator(current_agent_id, op)
+        if our_turn:
+            current_max = -float('inf')
+            op_max = -1
+            for child, op in zip(children, operators):
+                v, _ = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit)
+                if v > current_max :
+                    current_max = v
+                    op_max = op
+            return current_max, op_max
+        else:
+            sum = 0
+            for child, op in zip(children, operators):
+                v, _ = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit)
+                sum += v*(op == "move east" or op == "pick up") + v
+            sum /= len(operators) + ("move east" in operators) + ("pick up" in operators)
+            return sum, -1
+
+
+
 
 
 # here you can check specific paths to get to know the environment

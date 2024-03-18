@@ -79,6 +79,7 @@ def run_agents():
         num_of_games = 100
 
         for i in range(num_of_games):
+            print(i, " out of 100", end="\r")
             env.generate(args.seed + i, 2*args.count_steps)
             if args.console_print:
                 print('initial board:')

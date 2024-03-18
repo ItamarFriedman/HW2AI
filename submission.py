@@ -1,6 +1,7 @@
 from Agent import Agent, AgentGreedy
 from WarehouseEnv import WarehouseEnv, manhattan_distance
 import random
+import time
 
 
 # TODO: section a : 3
@@ -43,12 +44,24 @@ class AgentGreedyImproved(AgentGreedy):
 class AgentMinimax(Agent):
     # TODO: section b : 1
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
+        start = time.time()
         operators = env.get_legal_operators(agent_id)
-        h, o = self.rb_minimax(env, agent_id, 8, True)
-        print(h)
-        return operators[o]
+        depth = 0
+        h, o = (0, 0)
+        try:
+            while True:
+                depth += 1
+                h, o = self.rb_minimax(env, agent_id, depth, True, start, time_limit)
+                #print("Operation ", o, "Hueristic", h)
+                #print(depth)
+        except TimeoutError:
+            return o
 
-    def rb_minimax(self, env, agent_id, depth, our_turn) -> (int, int):
+
+    def rb_minimax(self, env, agent_id, depth, our_turn, start, time_limit) -> (int, int):
+        currentTime = time.time()
+        if currentTime - start >= 0.9 * time_limit:
+            raise TimeoutError
         if (env.done()) or depth == 0:
             return self.heuristic(env, agent_id), -1
 
@@ -63,8 +76,8 @@ class AgentMinimax(Agent):
         if our_turn:
             current_max = -float('inf')
             op_max = -1
-            for child in children:
-                v, op = self.rb_minimax(child, agent_id, depth-1, not our_turn)
+            for child, op in zip(children, operators):
+                v, _ = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit)
                 if v > current_max :
                     current_max = v
                     op_max = op
@@ -72,13 +85,20 @@ class AgentMinimax(Agent):
         else:
             current_min = float('inf')
             op_min = -1
-            for child in children:
-                v, op = self.rb_minimax(child, agent_id, depth-1, not our_turn)
+            for child, op in zip(children, operators):
+                v, _ = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit)
                 if v < current_min:
                     current_min = v
                     op_min = op
             return current_min, op_min
 
+    def heuristic(self, env: WarehouseEnv, robot_id: int):
+        robot = env.get_robot(robot_id)
+        other_robot = env.get_robot((robot_id + 1) % 2)
+        packageBonus = 10*(robot.package is not None)
+        creditBonus = 100*robot.credit
+        creditDifference = 1000*(robot.credit - other_robot.credit)
+        return packageBonus + creditBonus + creditDifference
 
 class AgentAlphaBeta(Agent):
     # TODO: section c : 1

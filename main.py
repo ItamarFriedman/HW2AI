@@ -76,11 +76,13 @@ def run_agents():
         robot0_wins = 0
         robot1_wins = 0
         draws = 0
-        num_of_games = 5 #TODO restore to 100
+        num_of_games = 100 #TODO restore to 100
 
+        current_seed = 0
         for i in range(num_of_games):
             print(i, " out of 100", end="\r")
             env.generate(args.seed + i, 2*args.count_steps)
+            current_seed = args.seed + i
             if args.console_print:
                 print('initial board:')
                 env.print()
@@ -106,6 +108,7 @@ def run_agents():
             balances = env.get_balances()
             if balances[0] == balances[1]:
                 draws += 1
+                print("Draw seed: ", current_seed)
             elif balances[0] > balances[1]:
                 robot0_wins += 1
             else:

@@ -7,30 +7,40 @@ import time
 # TODO: section a : 3
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
     robot = env.get_robot(robot_id)
+    # distance form the closest package if robot has no package
     pickUpIncentive = (robot.package is None) * min(manhattan_distance(robot.position, env.packages[0].position),
                                                     manhattan_distance(robot.position, env.packages[1].position))
+    # finding the closest package
     closestCharge = env.charge_stations[1]
-    if manhattan_distance(robot.position, env.charge_stations[0].position) <= manhattan_distance(robot.position,
-                                                                                                 env.charge_stations[
-                                                                                                     1].position):
+    if manhattan_distance(robot.position, env.charge_stations[0].position) <= \
+            manhattan_distance(robot.position, env.charge_stations[1].position):
         closestCharge = env.charge_stations[0]
 
+    # the minimum distance from the nearest charge to a package
     extra = min(manhattan_distance(closestCharge.position, env.packages[0].position),
                 manhattan_distance(closestCharge.position, env.packages[1].position))
 
+    closestPackageToCharge = env.packages[1]
+    if manhattan_distance(closestCharge.position, env.packages[0].position) <= \
+            manhattan_distance(closestCharge.position, env.packages[1].position):
+        closestPackageToCharge = env.packages[0]
+
+    after_charge = manhattan_distance(closestCharge.position,closestPackageToCharge.position) + manhattan_distance(closestPackageToCharge.position, closestPackageToCharge.destination)
+
+    # if robot does have a package, setting his drop-off distance and extra distance from charge to drop-off
     dropOffIncentive = 0
     if robot.package is not None:
         dropOffIncentive = manhattan_distance(robot.position, robot.package.destination)
         extra = manhattan_distance(closestCharge.position, robot.package.destination)
+        after_charge = extra
 
-    if robot.battery <= 1.5 * min(manhattan_distance(robot.position, env.charge_stations[0].position),
-                            manhattan_distance(robot.position, env.charge_stations[1].position)):
+    # if battery is low
+    if robot.battery <= 1.5 * manhattan_distance(robot.position, closestCharge.position) and robot.battery > after_charge:
 
-        return 50000 - min(manhattan_distance(robot.position, env.charge_stations[0].position),
-                           manhattan_distance(robot.position, env.charge_stations[1].position))
-    else:
+        return 30000 - manhattan_distance(robot.position, closestCharge.position) + 50*(robot.package is not None)
+    else:  # if battery is high enough
         return 50000 - (15 * pickUpIncentive + dropOffIncentive - (100 * robot.battery) * (extra >= robot.battery) -
-                        50*robot.credit)
+                        50*robot.credit) + 50*(robot.package is not None) + robot.position[1]
 
 
 
@@ -54,7 +64,6 @@ class AgentMinimax(Agent):
         except TimeoutError:
             return o
 
-
     def rb_minimax(self, env, agent_id, depth, our_turn, start, time_limit) -> (int, int):
         currentTime = time.time()
         if currentTime - start >= 0.9 * time_limit:
@@ -74,8 +83,8 @@ class AgentMinimax(Agent):
             current_max = -float('inf')
             op_max = -1
             for child, op in zip(children, operators):
-                v, _ = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit)
-                if v > current_max :
+                v, _ = self.rb_minimax(child, agent_id, depth - 1, not our_turn, start, time_limit)
+                if v > current_max:
                     current_max = v
                     op_max = op
             return current_max, op_max
@@ -83,7 +92,7 @@ class AgentMinimax(Agent):
             current_min = float('inf')
             op_min = -1
             for child, op in zip(children, operators):
-                v, _ = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit)
+                v, _ = self.rb_minimax(child, agent_id, depth - 1, not our_turn, start, time_limit)
                 if v < current_min:
                     current_min = v
                     op_min = op
@@ -92,16 +101,17 @@ class AgentMinimax(Agent):
     def heuristic(self, env: WarehouseEnv, robot_id: int):
         robot = env.get_robot(robot_id)
         other_robot = env.get_robot((robot_id + 1) % 2)
-        packageBonus = 10*(robot.package is not None)
-        creditBonus = 100*robot.credit
-        lowBatteryPanelty = 5000*(robot.battery <= 0)
-        creditDifference = 1000*(robot.credit - other_robot.credit)
+        packageBonus = 10 * (robot.package is not None)
+        creditBonus = 100 * robot.credit
+        lowBatteryPanelty = 5000 * (robot.battery <= 0)
+        creditDifference = 1000 * (robot.credit - other_robot.credit)
         return packageBonus + creditBonus + creditDifference - lowBatteryPanelty
 
 
 class AgentAlphaBeta(AgentMinimax):
     # TODO: section c : 1
-    def rb_minimax(self, env, agent_id, depth, our_turn, start, time_limit, alpha=-float('inf'), beta=float('inf')) -> (int, int):
+    def rb_minimax(self, env, agent_id, depth, our_turn, start, time_limit, alpha=-float('inf'), beta=float('inf')) -> (
+    int, int):
         currentTime = time.time()
         if currentTime - start >= 0.9 * time_limit:
             raise TimeoutError
@@ -120,7 +130,7 @@ class AgentAlphaBeta(AgentMinimax):
             current_max = -float('inf')
             op_max = -1
             for child, op in zip(children, operators):
-                v = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit, alpha, beta)[0]
+                v = self.rb_minimax(child, agent_id, depth - 1, not our_turn, start, time_limit, alpha, beta)[0]
                 if v > current_max:
                     current_max = v
                     op_max = op
@@ -132,7 +142,7 @@ class AgentAlphaBeta(AgentMinimax):
             current_min = float('inf')
             op_min = -1
             for child, op in zip(children, operators):
-                v = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit, alpha, beta)[0]
+                v = self.rb_minimax(child, agent_id, depth - 1, not our_turn, start, time_limit, alpha, beta)[0]
                 if v < current_min:
                     current_min = v
                     op_min = op
@@ -162,21 +172,18 @@ class AgentExpectimax(AgentMinimax):
             current_max = -float('inf')
             op_max = -1
             for child, op in zip(children, operators):
-                v, _ = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit)
-                if v > current_max :
+                v, _ = self.rb_minimax(child, agent_id, depth - 1, not our_turn, start, time_limit)
+                if v > current_max:
                     current_max = v
                     op_max = op
             return current_max, op_max
         else:
             sum = 0
             for child, op in zip(children, operators):
-                v, _ = self.rb_minimax(child, agent_id, depth-1, not our_turn, start, time_limit)
-                sum += v*(op == "move east" or op == "pick up") + v
+                v, _ = self.rb_minimax(child, agent_id, depth - 1, not our_turn, start, time_limit)
+                sum += v * (op == "move east" or op == "pick up") + v
             sum /= len(operators) + ("move east" in operators) + ("pick up" in operators)
             return sum, -1
-
-
-
 
 
 # here you can check specific paths to get to know the environment

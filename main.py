@@ -108,7 +108,6 @@ def run_agents():
             balances = env.get_balances()
             if balances[0] == balances[1]:
                 draws += 1
-                print("Draw seed: ", current_seed)
             elif balances[0] > balances[1]:
                 robot0_wins += 1
             else:

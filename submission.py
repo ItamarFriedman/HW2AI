@@ -98,22 +98,9 @@ class AgentMinimax(Agent):
         robot = env.get_robot(robot_id)
         other_robot = env.get_robot((robot_id + 1) % 2)
 
-        if (env.done()):
+        if env.done():
             return 10e6 * (robot.credit > other_robot.credit) - 10e6 * (robot.credit < other_robot.credit)
         return smart_heuristic(env, robot_id) - smart_heuristic(env, not robot_id)
-
-        packageBonus = 1 * (robot.package is not None)
-        creditBonus = 10 * robot.credit
-        lowBatteryPanelty = 500 * (robot.battery <= 0)
-        creditDifference = 100 * (robot.credit - other_robot.credit)
-        ourHeuristic = packageBonus + creditBonus + creditDifference - lowBatteryPanelty
-
-        packageBonus = 1 * (other_robot.package is not None)
-        creditBonus = 10 * other_robot.credit
-        lowBatteryPanelty = 500 * (other_robot.battery <= 0)
-        creditDifference = 100 * (other_robot.credit - robot.credit)
-        otherHeuristic = packageBonus + creditBonus + creditDifference - lowBatteryPanelty
-        return ourHeuristic - otherHeuristic
 
 
 class AgentAlphaBeta(AgentMinimax):
